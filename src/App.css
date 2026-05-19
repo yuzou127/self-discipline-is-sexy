@@ -556,3 +556,239 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+.chart-card {
+  overflow: hidden;
+}
+
+.chart-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.chart-block {
+  padding: 14px;
+  border-radius: 22px;
+  background: #f8fbff;
+  border: 1px solid rgba(102, 153, 204, 0.1);
+}
+
+.chart-block h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  color: #183250;
+}
+
+.chart-empty {
+  margin: 0;
+  padding: 18px 10px;
+  border-radius: 18px;
+  text-align: center;
+  color: #72869c;
+  background: rgba(255, 255, 255, 0.64);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.mini-chart-bars {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  align-items: end;
+  gap: 8px;
+  min-height: 126px;
+}
+
+.mini-chart-bars.compact-bars {
+  grid-template-columns: repeat(30, 1fr);
+  gap: 3px;
+  min-height: 112px;
+}
+
+.mini-bar-column {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  align-items: end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mini-bar-track {
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  height: 92px;
+  border-radius: 999px;
+  background: rgba(222, 238, 252, 0.7);
+  overflow: hidden;
+}
+
+.mini-bar {
+  width: 100%;
+  min-height: 6px;
+  border-radius: 999px 999px 0 0;
+  background: rgba(126, 149, 173, 0.24);
+  transition: height 0.25s ease;
+}
+
+.mini-bar.filled {
+  background: linear-gradient(180deg, #58afff 0%, #2d7ff9 100%);
+  box-shadow: 0 6px 14px rgba(45, 127, 249, 0.18);
+}
+
+.mini-bar-column span {
+  text-align: center;
+  color: #70849b;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.compact-bars .mini-bar-track {
+  height: 86px;
+}
+
+.compact-bars .mini-bar-column {
+  gap: 0;
+}
+
+.weight-chart-wrap {
+  display: grid;
+  gap: 8px;
+}
+
+.weight-line-chart {
+  width: 100%;
+  height: 130px;
+  color: #2d7ff9;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f1f8ff 100%);
+}
+
+.chart-axis {
+  stroke: rgba(86, 122, 158, 0.26);
+  stroke-width: 2;
+}
+
+.chart-grid-line {
+  stroke: rgba(86, 122, 158, 0.12);
+  stroke-width: 2;
+}
+
+.weight-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.weight-dot {
+  fill: #ffffff;
+  stroke: #2d7ff9;
+  stroke-width: 3;
+}
+
+.weight-chart-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #72869c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.weight-chart-meta strong {
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: #183250;
+  background: #eaf5ff;
+  border: 1px solid rgba(45, 127, 249, 0.12);
+}
+
+@media (min-width: 430px) {
+  .chart-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.chart-with-summary {
+  display: grid;
+  gap: 12px;
+}
+
+.chart-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.chart-summary-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  color: #5c728c;
+  background: #ffffff;
+  border: 1px solid rgba(102, 153, 204, 0.12);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.chart-summary-row strong {
+  color: #183250;
+}
+
+.bar-value-label {
+  height: 18px;
+  text-align: center;
+  color: #35516f;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.compact-bars .bar-value-label {
+  writing-mode: vertical-rl;
+  height: 30px;
+  font-size: 9px;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.weight-axis-label {
+  fill: #72869c;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.weight-point-label {
+  fill: #183250;
+  font-size: 10px;
+  font-weight: 900;
+}
+.stats-range-card {
+  display: grid;
+  gap: 10px;
+}
+
+.range-switcher {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.range-switcher button {
+  padding: 13px 10px;
+  border-radius: 18px;
+  color: #55708d;
+  font-weight: 900;
+  background: #f3f8fd;
+  border: 1px solid rgba(100, 149, 198, 0.12);
+}
+
+.range-switcher button.active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #2d7ff9, #58afff);
+  box-shadow: 0 10px 20px rgba(44, 123, 229, 0.18);
+}
