@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import './App.css';
+import { supabase } from './supabaseClient';
 
 type PersonId = 'rabbit' | 'dragon';
 type Page = 'home' | 'checkin' | 'calendar' | 'medals' | 'stats';
@@ -17,6 +18,21 @@ type WorkoutLog = {
   createdAt: string;
 };
 
+type SupabaseWorkoutLog = {
+  id: string;
+  couple_id: string;
+  person: PersonId;
+  date: string;
+  completed: boolean;
+  activity: string;
+  minutes: number;
+  distance: number | null;
+  weight: number | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type Progress = {
   position: number;
   currentStreak: number;
@@ -27,7 +43,7 @@ type Progress = {
   lastWeight?: number;
 };
 
-const STORAGE_KEY = 'self-discipline-is-sexy-v2';
+const COUPLE_ID = 'dudu_dragon_private';
 
 const profiles = {
   rabbit: {
@@ -59,7 +75,7 @@ const medalNames = [
 
 function AvatarIcon({
   person,
-  size = 68,
+  size = 56,
 }: {
   person: PersonId;
   size?: number;
@@ -76,6 +92,7 @@ function AvatarIcon({
         height: size,
         objectFit: 'contain',
         display: 'block',
+        borderRadius: '18px',
       }}
     />
   );
@@ -84,9 +101,9 @@ function AvatarIcon({
 function HeroIcon() {
   return (
     <svg
-      width="76"
-      height="76"
-      viewBox="0 0 76 76"
+      width="42"
+      height="42"
+      viewBox="0 0 48 48"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
@@ -258,7 +275,14 @@ function MedalIcon({ locked = false }: { locked?: boolean }) {
         strokeWidth="2.4"
         strokeLinejoin="round"
       />
-      <circle cx="22" cy="25" r="12" fill="#FFFFFF" stroke="#2D7FF9" strokeWidth="2.4" />
+      <circle
+        cx="22"
+        cy="25"
+        r="12"
+        fill="#FFFFFF"
+        stroke="#2D7FF9"
+        strokeWidth="2.4"
+      />
       <path
         d="M22 18L24 22L28.4 22.6L25.2 25.7L26 30L22 28L18 30L18.8 25.7L15.6 22.6L20 22L22 18Z"
         fill="#2D7FF9"
@@ -308,13 +332,19 @@ function isThisWeek(date: string) {
   return d >= startOfWeek() && d <= endOfWeek();
 }
 
-function loadLogs(): WorkoutLog[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+function dbRowToLog(row: SupabaseWorkoutLog): WorkoutLog {
+  return {
+    id: row.id,
+    person: row.person,
+    date: row.date,
+    completed: row.completed,
+    activity: row.activity,
+    minutes: Number(row.minutes || 0),
+    distance: row.distance === null ? undefined : Number(row.distance),
+    weight: row.weight === null ? undefined : Number(row.weight),
+    note: row.note || '',
+    createdAt: row.created_at,
+  };
 }
 
 function calculateProgress(logs: WorkoutLog[]): Record<PersonId, Progress> {
@@ -402,7 +432,7 @@ function getMonthDays() {
 
 function App() {
   const [page, setPage] = useState<Page>('home');
-  const [logs, setLogs] = useState<WorkoutLog[]>(loadLogs);
+  const [logs, setLogs] = useState<WorkoutLog[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<PersonId>('rabbit');
   const [date, setDate] = useState(todayString());
   const [completed, setCompleted] = useState(true);
@@ -412,10 +442,42 @@ function App() {
   const [weight, setWeight] = useState('');
   const [note, setNote] = useState('');
   const [toast, setToast] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [syncText, setSyncText] = useState('正在同步云端数据...');
+
+  const fetchLogs = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('workout_logs')
+        .select('*')
+        .eq('couple_id', COUPLE_ID)
+        .order('date', { ascending: true })
+        .order('person', { ascending: true });
+
+      if (error) throw error;
+
+      const mappedLogs = ((data || []) as SupabaseWorkoutLog[]).map(dbRowToLog);
+      setLogs(mappedLogs);
+      setSyncText('云端同步已开启');
+    } catch (error) {
+      console.error(error);
+      setSyncText('云端同步失败，请检查 Supabase 设置');
+      setToast('云端同步失败，请检查 Supabase 设置。');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
-  }, [logs]);
+    fetchLogs();
+
+    const timer = window.setInterval(() => {
+      fetchLogs();
+    }, 15000);
+
+    return () => window.clearInterval(timer);
+  }, [fetchLogs]);
 
   useEffect(() => {
     setActivity(profiles[selectedPerson].defaultActivity);
@@ -429,12 +491,14 @@ function App() {
   }, [toast]);
 
   const progress = useMemo(() => calculateProgress(logs), [logs]);
-
   const todayLogs = logs.filter((log) => log.date === todayString());
 
-  const saveLog = () => {
-    const newLog: WorkoutLog = {
-      id: `${selectedPerson}-${date}`,
+  const saveLog = async () => {
+    setIsSaving(true);
+
+    const dbLog = {
+      id: `${COUPLE_ID}-${selectedPerson}-${date}`,
+      couple_id: COUPLE_ID,
       person: selectedPerson,
       date,
       completed,
@@ -444,34 +508,65 @@ function App() {
       distance:
         selectedPerson === 'dragon' && completed && distance
           ? Number(distance)
-          : undefined,
-      weight: weight ? Number(weight) : undefined,
-      note,
-      createdAt: new Date().toISOString(),
+          : null,
+      weight: weight ? Number(weight) : null,
+      note: note || null,
+      updated_at: new Date().toISOString(),
     };
 
-    setLogs((prev) => [
-      ...prev.filter(
-        (log) => !(log.person === selectedPerson && log.date === date)
-      ),
-      newLog,
-    ]);
+    try {
+      const { data, error } = await supabase
+        .from('workout_logs')
+        .upsert(dbLog, {
+          onConflict: 'couple_id,person,date',
+        })
+        .select()
+        .single();
 
-    setToast(
-      completed
-        ? `${profiles[selectedPerson].name} 打卡成功，前进 1 格！`
-        : `${profiles[selectedPerson].name} 今天休息，后退 2 格。`
-    );
+      if (error) throw error;
 
-    setNote('');
+      const savedLog = dbRowToLog(data as SupabaseWorkoutLog);
+
+      setLogs((prev) => [
+        ...prev.filter(
+          (log) => !(log.person === selectedPerson && log.date === date)
+        ),
+        savedLog,
+      ]);
+
+      setToast(
+        completed
+          ? `${profiles[selectedPerson].name} 打卡成功，已同步到云端！`
+          : `${profiles[selectedPerson].name} 今天休息，已同步到云端。`
+      );
+
+      setSyncText('刚刚已同步');
+      setNote('');
+    } catch (error) {
+      console.error(error);
+      setToast('保存失败，请检查 Supabase 表和权限。');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const resetData = () => {
-    const yes = window.confirm('确定要清空所有打卡数据吗？这个操作不能恢复。');
-    if (yes) {
+  const resetData = async () => {
+    const yes = window.confirm('确定要清空所有云端打卡数据吗？这个操作不能恢复。');
+    if (!yes) return;
+
+    try {
+      const { error } = await supabase
+        .from('workout_logs')
+        .delete()
+        .eq('couple_id', COUPLE_ID);
+
+      if (error) throw error;
+
       setLogs([]);
-      localStorage.removeItem(STORAGE_KEY);
-      setToast('数据已清空，可以重新开始啦。');
+      setToast('云端数据已清空，可以重新开始啦。');
+    } catch (error) {
+      console.error(error);
+      setToast('清空失败，请检查 Supabase 权限。');
     }
   };
 
@@ -491,6 +586,18 @@ function App() {
           </div>
         </section>
 
+        <section className="clay-card">
+          <div className="section-title">
+            <div>
+              <h2>云端同步</h2>
+              <p>{syncText}</p>
+            </div>
+            <button className="small-button" onClick={fetchLogs}>
+              刷新同步
+            </button>
+          </div>
+        </section>
+
         <section className="two-cards">
           {(Object.keys(profiles) as PersonId[]).map((person) => {
             const p = profiles[person];
@@ -505,7 +612,7 @@ function App() {
             return (
               <div className={`person-card ${p.gradient}`} key={person}>
                 <div className="avatar">
-                  <AvatarIcon person={person} size={68} />
+                  <AvatarIcon person={person} size={58} />
                 </div>
                 <div>
                   <h2>{p.name}</h2>
@@ -702,8 +809,8 @@ function App() {
           placeholder="比如：今天有点累，但做完之后很爽。"
         />
 
-        <button className="primary-button" onClick={saveLog}>
-          保存打卡
+        <button className="primary-button" onClick={saveLog} disabled={isSaving}>
+          {isSaving ? '正在保存...' : '保存打卡'}
         </button>
 
         <p className="hint">同一个人同一天只能保留一条记录，重新保存会覆盖旧记录。</p>
@@ -892,16 +999,35 @@ function App() {
           <div className="section-title">
             <div>
               <h2>数据管理</h2>
-              <p>第一版数据保存在当前浏览器里。</p>
+              <p>当前数据已保存在 Supabase 云端。</p>
             </div>
           </div>
           <button className="danger-button" onClick={resetData}>
-            清空所有数据
+            清空所有云端数据
           </button>
         </section>
       </main>
     );
   };
+
+  if (isLoading) {
+    return (
+      <div className="app-shell">
+        <main className="page">
+          <section className="hero">
+            <div>
+              <p className="eyebrow">正在加载</p>
+              <h1>同步你们的训练记录...</h1>
+              <p className="subtitle">正在连接 Supabase 云端数据。</p>
+            </div>
+            <div className="hero-bubble">
+              <HeroIcon />
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
